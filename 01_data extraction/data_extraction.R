@@ -4,14 +4,16 @@ library(httr)
 library(stringr)
 library(dplyr)
 
+## Guardian API
+
 # Define the base URL for the Guardian API content endpoint
 base_url <- "https://content.guardianapis.com/search"
 
-# Setup query parameters
+# Set up API key
 api_key_data <- read.csv("api_key.csv", header = FALSE)
 api_key <- api_key_data$V1[1]
 
-# filter the news articles related to NHS
+# filter the news articles related to single payer health insurance from 2024
 query_params <- list(
   q = "single payer health insurance", 
   "order-by" = "newest",
@@ -47,5 +49,57 @@ articles_df <- map_df(data$response$results, ~data.frame(
 
 # Save to CSV
 write.csv(articles_df, "single_payer_health_insurance_articles.csv", row.names = FALSE)
+
+
+
+## serpAPI
+
+library(httr)
+library(jsonlite)
+
+# Set up API key
+api_key_google_scolar <- api_key_data$V1[2]
+
+# Function to perform a Google Scholar search using SerpApi
+google_scholar_search <- function(query, api_key_google_scolar) {
+  base_url_SerpAPI <- "https://serpapi.com/search"
+  
+  params <- list(
+    engine = "google_scholar",
+    q = query,
+    api_key = api_key_google_scolar
+  )
+  
+  response <- GET(base_url_SerpAPI, query = params)
+  
+  if (status_code(response) == 200) {
+    result <- content(response, "text")
+    result <- fromJSON(result, flatten = TRUE)
+    return(result$organic_results)
+  } else {
+    stop("Failed to fetch data: ", status_code(response))
+  }
+}
+
+
+# filter for publications related to single payer health insurance 
+query <- "single payer health insurance"
+organic_results <- google_scholar_search(query, api_key_google_scolar)
+
+# Print the results
+print(organic_results)
+
+# Access the link of the first publication
+first_publication_link <- organic_results[[1]]$link
+
+# Extract the links of the publications
+publication_links <- sapply(organic_results, function(result) result$link)
+
+# Print the links
+print(publication_links)
+
+
+
+
 
 
