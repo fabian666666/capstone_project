@@ -56,6 +56,7 @@ write.csv(articles_df, "single_payer_health_insurance_articles.csv", row.names =
 
 library(httr)
 library(jsonlite)
+library(dplyr)
 
 # Set up API key
 api_key_google_scolar <- api_key_data$V1[2]
@@ -67,6 +68,8 @@ google_scholar_search <- function(query, api_key_google_scolar) {
   params <- list(
     engine = "google_scholar",
     q = query,
+    as_ylo = 2024,
+    as_yhi = 2024,
     api_key = api_key_google_scolar
   )
   
@@ -83,20 +86,58 @@ google_scholar_search <- function(query, api_key_google_scolar) {
 
 
 # filter for publications related to single payer health insurance 
-query <- "single payer health insurance"
+query <- "single payer health insurance OR single payer health system"
+
 organic_results <- google_scholar_search(query, api_key_google_scolar)
 
 # Print the results
 print(organic_results)
 
-# Access the link of the first publication
+# Convert the list to a data frame
+organic_results_df <- as.data.frame(organic_results)
+
+# Access the fourth column of the data frame
+links <- organic_results_df[, 4]
+
+# Print the fourth column
+print(links)
+
+# Fetch the content of the links
+page <- read_html(links[1:10])
+# HTTP error 403.
+
+# Extract and print the text 
+page_text <- page %>%
+  html_nodes("p") %>% 
+  html_text()
+
+
+
+
+
+# Extract and print the text from the page
+page_text <- page %>%
+  html_nodes("p") %>% 
+  html_text()
+
+# Print the extracted text
+print(page_text)
+
+
+
+
+
+
 first_publication_link <- organic_results[[1]]$link
 
 # Extract the links of the publications
-publication_links <- sapply(organic_results, function(result) result$link)
+publication_links <- sapply(organic_results, function(result) result$link) # does not work
 
 # Print the links
-print(publication_links)
+print(publication_links) 
+
+
+# Manually scrape the publication links from the search results
 
 
 
