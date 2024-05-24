@@ -4,16 +4,14 @@ library(httr)
 library(stringr)
 library(dplyr)
 
-## Guardian API
-
 # Define the base URL for the Guardian API content endpoint
 base_url <- "https://content.guardianapis.com/search"
 
-# Set up API key
+# Setup query parameters
 api_key_data <- read.csv("api_key.csv", header = FALSE)
 api_key <- api_key_data$V1[1]
 
-# filter the news articles related to single payer health insurance from 2024
+# filter the news articles related to NHS
 query_params <- list(
   q = "single payer health insurance", 
   "order-by" = "newest",
@@ -47,9 +45,6 @@ articles_df <- map_df(data$response$results, ~data.frame(
   date = coalesce(.x$webPublicationDate, "")  
 ), .id = "article_id")
 
-# Save to CSV
-write.csv(articles_df, "single_payer_health_insurance_articles.csv", row.names = FALSE)
-
 
 
 ## serpAPI
@@ -68,7 +63,7 @@ google_scholar_search <- function(query, api_key_google_scolar) {
   params <- list(
     engine = "google_scholar",
     q = query,
-    as_ylo = 2024,
+    as_ylo = 2014,
     as_yhi = 2024,
     api_key = api_key_google_scolar
   )
@@ -86,7 +81,7 @@ google_scholar_search <- function(query, api_key_google_scolar) {
 
 
 # filter for publications related to single payer health insurance 
-query <- "single payer health insurance OR single payer health system"
+query <- "single payer health insurance OR single payer health system OR single payer health care" 
 
 organic_results <- google_scholar_search(query, api_key_google_scolar)
 
@@ -102,18 +97,25 @@ links <- organic_results_df[, 4]
 # Print the fourth column
 print(links)
 
+# Function to fetch and extract text from the first link
+fetch_text_from_link <- function(url) {
+  page <- read_html(url)
+  paragraphs <- page %>% html_nodes("p") %>% html_text()
+  return(paragraphs)
+}
+
+# Fetch the text from the first link
+first_link <- links[1]
+text_content <- fetch_text_from_link(first_link) # does not work (Fehler in open.connection(x, "rb") : HTTP error 403.)
+
 # Fetch the content of the links
-page <- read_html(links[1:10])
+page <- read_html(links[1])
 # HTTP error 403.
 
 # Extract and print the text 
 page_text <- page %>%
   html_nodes("p") %>% 
   html_text()
-
-
-
-
 
 # Extract and print the text from the page
 page_text <- page %>%
@@ -123,21 +125,103 @@ page_text <- page %>%
 # Print the extracted text
 print(page_text)
 
+library(rvest)
+library(syuzhet)
+
+# Function to extract text from a link
+extract_text_from_link <- function(link) {
+  tryCatch({
+    page <- read_html(link)
+    text <- page %>% html_nodes("p") %>% html_text()
+    return(text)
+  }, error = function(e) {
+    return(NA)
+  })
+}
+
+# Extract text from all links
+texts <- sapply(links, extract_text_from_link)
 
 
-
-
-
-first_publication_link <- organic_results[[1]]$link
-
-# Extract the links of the publications
-publication_links <- sapply(organic_results, function(result) result$link) # does not work
-
-# Print the links
-print(publication_links) 
 
 
 # Manually scrape the publication links from the search results
+
+# Pubmed
+
+# Load libraries
+library(rentrez)
+library(dplyr)
+library(stringr)
+
+# Set up PubMed query
+search_term <- "single payer"
+search_results <- entrez_search(db = "pubmed", term = search_term, retmax = 10)
+
+# Fetch abstracts for each article
+article_ids <- search_results$ids
+
+fetch_abstract <- function(article_id) {
+  abstract <- entrez_fetch(db = "pubmed", id = article_id, rettype = "abstract", retmode = "text")
+  return(abstract)
+}
+
+abstracts <- sapply(article_ids, fetch_abstract)
+
+# Clean and format data
+articles <- data.frame(
+  id = article_ids,
+  abstract = abstracts,
+  stringsAsFactors = FALSE
+)
+
+# Save data
+write.csv(articles, "pubmed_abstracts_single_payer.csv", row.names = FALSE)
+
+
+
+
+
+library(rentrez)
+library(dplyr)
+library(stringr)
+
+# Set up PubMed query
+search_term <- "single payer"
+search_results <- entrez_search(db = "pubmed", term = search_term, retmax = 3)
+
+# Fetch abstracts for each article
+article_ids <- search_results$ids
+
+fetch_abstract <- function(article_id) {
+  abstract_text <- entrez_fetch(db = "pubmed", id = article_id, rettype = "abstract", retmode = "text")
+  
+  # Extract abstract text using regular expression
+  abstract_lines <- unlist(strsplit(abstract_text, "\n"))
+  abstract_start <- which(grepl("^\\s*\\[Abstract\\]", abstract_lines))
+  if(length(abstract_start) > 0){
+    abstract_lines <- abstract_lines[(abstract_start + 1):length(abstract_lines)]
+  }
+  
+  abstract <- paste(abstract_lines, collapse = " ")
+  return(abstract)
+}
+
+abstracts <- sapply(article_ids, fetch_abstract)
+
+# Clean and format data
+articles <- data.frame(
+  id = article_ids,
+  abstract = abstracts,
+  stringsAsFactors = FALSE
+)
+
+# View the articles data frame
+print(articles)
+
+# Save data
+write.csv(articles, "test_pubmed_abstracts_single_payer.csv", row.names = FALSE)
+
 
 
 
