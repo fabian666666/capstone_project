@@ -81,6 +81,12 @@ dat_lifeexp <- dat_lifeexp %>%
   filter(!is.na(country_name))
 dat_lifeexp
 
+# Plotting life expectancy over time:
+ggplot(dat_lifeexp, aes(x = year, y = life_expectancy)) + 
+  geom_smooth(aes(group = country), size = 0.1, se = FALSE, color = "black") + 
+  geom_smooth(size = 2) +
+  labs(title = "Life Expectancy Over Time", x = "Year", y = "Life Expectancy")
+
 # Save the data to a CSV file
 write_csv(dat_lifeexp, "data/life_expectancy.csv")
 
